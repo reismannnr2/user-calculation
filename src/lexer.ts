@@ -26,10 +26,14 @@ export const specials = [
   '||',
   '$(',
   '@(',
-  '#{',
+  '@[',
+  '@{',
+  '@|',
+  '|',
   '=>',
   '{',
   '}',
+  ':',
 ] as const;
 
 export type SpChar = {
@@ -56,8 +60,19 @@ export type FnStartToken = {
   type: 'fn-start';
   name: string;
 };
+export type RawIdentifier = {
+  type: 'raw-identifier';
+  name: string;
+};
 
-export type LexToken = SpChar | StringLiteral | NumberLiteral | VarToken | FnStartToken | LambdaVarToken;
+export type LexToken =
+  | SpChar
+  | StringLiteral
+  | NumberLiteral
+  | VarToken
+  | FnStartToken
+  | LambdaVarToken
+  | RawIdentifier;
 
 export type Lexer<L extends LexToken = LexToken> = Parser<string, L>;
 const lexNum: Lexer<NumberLiteral> = (stream) => {
@@ -67,6 +82,14 @@ const lexNum: Lexer<NumberLiteral> = (stream) => {
   }
   return success(m[6] ?? '', { type: 'number-literal', value: Number(m[1]) });
 };
+const lexIdentifier: Lexer<RawIdentifier> = (stream) => {
+  const m = /^([A-Za-z_][0-9A-Za-z_]+)(.*)/.exec(stream);
+  if (m == null) {
+    return fail();
+  }
+  return success(m[2] ?? '', { type: 'raw-identifier', name: m[1] ?? '' });
+};
+
 const lexVar: Lexer<VarToken> = (stream) => {
   const m = /^(\$[$#]?[0-9A-Za-z_]+)(.*)/.exec(stream);
   if (m == null) {
@@ -109,7 +132,7 @@ const lexSpChar: Lexer<SpChar> = (stream) => {
   return success(rest, { type: 'sp-char', value: c });
 };
 export const tokenize = (stream: string): Result<LexToken[], Error> => {
-  const lexer = or(lexNum, lexVar, lexLambdaVar, lexFn, lexStr, lexSpChar);
+  const lexer = or(lexNum, lexVar, lexIdentifier, lexLambdaVar, lexFn, lexStr, lexSpChar);
   const tokens: LexToken[] = [];
   let rest = stream.trim();
   while (rest.length > 0) {

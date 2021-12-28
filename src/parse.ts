@@ -1,4 +1,5 @@
 import {
+  ArrayNode,
   CalculatedFunctionCallNode,
   CalculatedVarNode,
   EvalNode,
@@ -7,8 +8,10 @@ import {
   LambdaCallNode,
   LambdaDefNode,
   LambdaVarToken,
+  ObjectNode,
   ParNode,
   UnaryNode,
+  ValueToken,
 } from './evaluate';
 import { cat, fail, list, map, or, Parser, rep, success, successThen } from './combinator';
 import { LexToken, SpChar, tokenize } from './lexer';
@@ -39,6 +42,28 @@ const lambdaVar: CalcParser<LambdaVarToken> = (stream) => {
   return head.type === 'lambda-var' ? success(stream.slice(1), head) : fail();
 };
 
+const literal: CalcParser<string | number> = (stream) => {
+  if (stream.length === 0) {
+    return fail();
+  }
+  const head = stream[0];
+  if (head.type === 'string-literal' || head.type === 'number-literal') {
+    return success(stream.slice(1), head.value);
+  }
+  return fail();
+};
+
+const rawIdentifier: CalcParser<string> = (stream) => {
+  if (stream.length === 0) {
+    return fail();
+  }
+  const head = stream[0];
+  if (head.type === 'raw-identifier') {
+    return success(stream.slice(1), head.name);
+  }
+  return fail();
+};
+
 const atom: CalcParser<EvalNode> = (stream) => {
   if (stream.length === 0) {
     return fail();
@@ -52,6 +77,7 @@ const atom: CalcParser<EvalNode> = (stream) => {
   }
   return fail();
 };
+
 const fnStart: CalcParser<string> = (stream) => {
   if (stream.length === 0) {
     return fail();
@@ -75,16 +101,68 @@ const par: CalcParser<EvalNode> = (stream) => {
   });
   return or(wrapped, atom)(stream);
 };
+const arrayDef: CalcParser<EvalNode> = (stream) => {
+  if (stream.length === 0) {
+    return fail();
+  }
+  const empty = map(c(']'), () => {
+    const node: ValueToken = {
+      type: 'value',
+      value: [],
+    };
+    return node;
+  });
+  const items = map(cat(list(expr, c(',')), c(']')), ([items]) => {
+    const node: ArrayNode = {
+      type: 'array',
+      children: items,
+    };
+    return node;
+  });
+  const mapped = map(cat(c('@['), or(empty, items)), ([, node]) => node);
+  return or(mapped, par)(stream);
+};
+const objectDef: CalcParser<EvalNode> = (stream) => {
+  const calculatedIndex: CalcParser<EvalNode> = wrapExpr(c('['), c(']'));
+  const simpleIndex: CalcParser<EvalNode> = map(or(literal, rawIdentifier), (value) => ({ type: 'value', value }));
+  const index = or(calculatedIndex, simpleIndex);
+  const empty = map(c('}'), () => {
+    const node: ObjectNode = {
+      type: 'object',
+      raw: {},
+      pairs: [],
+    };
+    return node;
+  });
+  const withElement = map(cat(list(cat(index, c(':'), expr), c(',')), c('}')), ([items]) => {
+    const node: ObjectNode = {
+      type: 'object',
+      raw: {},
+      pairs: [],
+    };
+    for (const [key, , value] of items) {
+      if (key.type === 'value') {
+        node.raw[String(key.value)] = value;
+      } else {
+        node.pairs.push([key, value]);
+      }
+    }
+    return node;
+  });
+  const mapped = map(cat(c('@{'), or(empty, withElement)), ([, node]) => node);
+  return or(mapped, arrayDef)(stream);
+};
+
 const lambdaDef: CalcParser<EvalNode> = (stream) => {
   if (stream.length === 0) {
     return fail();
   }
   const identifiers: CalcParser<LambdaVarToken[]> = map(
     cat(
-      c('#{'),
+      c('@|'),
       or(
-        map(c('}'), () => [] as LambdaVarToken[]),
-        map(cat(list(lambdaVar, c(',')), c('}')), ([list]) => list),
+        map(c('|'), () => [] as LambdaVarToken[]),
+        map(cat(list(lambdaVar, c(',')), c('|')), ([list]) => list),
       ),
     ),
     ([, list]) => list,
@@ -97,7 +175,7 @@ const lambdaDef: CalcParser<EvalNode> = (stream) => {
     };
     return node;
   });
-  return or(mapped, par)(stream);
+  return or(mapped, objectDef)(stream);
 };
 const calcVar: CalcParser<EvalNode> = (stream) => {
   if (stream.length === 0) {
@@ -157,14 +235,14 @@ const lambdaCall: CalcParser<EvalNode> = (stream) => {
   return successThen(
     first,
     ([rest, head]) => {
-      const withoutArgs = map(cat(c<'{'>('{'), c('}')), () => {
+      const withoutArgs = map(cat(c<'('>('('), c(')')), () => {
         const node: LambdaCallNode = {
           type: 'lambda-call',
           children: [head],
         };
         return node;
       });
-      const withArgs = map(cat(c<'{'>('{'), list(expr, c(',')), c('}')), ([, args]) => {
+      const withArgs = map(cat(c<'('>('('), list(expr, c(',')), c(')')), ([, args]) => {
         const node: LambdaCallNode = {
           type: 'lambda-call',
           children: [head, ...args],
