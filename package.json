@@ -1,0 +1,53 @@
+{
+  "name": "@reismannnr2/user-calculation",
+  "version": "1.0.0",
+  "description": "Safe calculation library for evaluating user inputs",
+  "main": "dist/commonjs/index.js",
+  "module": "dist/es6/index.js",
+  "types": "dist/es6/index.d.ts",
+  "scripts": {
+    "test": "jest",
+    "build": "tsc --module ES6 --outDir dist/es6 --declaration && tsc --module commonjs --outDir dist/commonjs",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [],
+  "author": "reismannnr2",
+  "license": "ISC",
+  "dependencies": {
+    "@reismannnr2/async-result": "^2.1.1",
+    "fp-ts": "^2.11.5",
+    "io-ts": "^2.2.16"
+  },
+  "devDependencies": {
+    "@types/jest": "^27.0.3",
+    "@typescript-eslint/eslint-plugin": "^5.8.1",
+    "@typescript-eslint/parser": "^5.8.1",
+    "better-typescript-lib": "^2.0.0",
+    "eslint": "^8.5.0",
+    "eslint-config-prettier": "^8.3.0",
+    "eslint-plugin-jest": "^25.3.2",
+    "jest": "^27.4.5",
+    "prettier": "^2.5.1",
+    "ts-jest": "^27.1.2",
+    "ts-node": "^10.4.0",
+    "tsconfig-paths": "^3.12.0",
+    "typescript": "^4.5.4"
+  },
+  "jest": {
+    "moduleFileExtensions": [
+      "js",
+      "ts"
+    ],
+    "moduleNameMapper": {
+      "^src/(.+)": "<rootDir>/src/$1",
+      "^tests/(.+)": "<rootDir>/tests/$1"
+    },
+    "testMatch": [
+      "**/tests/**/*.test.ts"
+    ],
+    "transform": {
+      "^.+\\.ts$": "ts-jest"
+    }
+  },
+  "sideEffects": false
+}
