@@ -1,4 +1,4 @@
-import { VarRegistry } from './evaluate';
+import { VarRegistry } from './evaluators/evaluate';
 
 export type BasicPathItem = string | number;
 export type BasicPath = BasicPathItem[];

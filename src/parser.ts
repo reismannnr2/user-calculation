@@ -6,14 +6,14 @@ import {
   FunctionCallNode,
   InfixNode,
   LambdaCallNode,
-  LambdaDefNode,
+  LambdaNode,
   LambdaVarToken,
   ObjectNode,
   ParNode,
   UnaryNode,
   ValueToken,
-} from './evaluate';
-import { cat, fail, list, map, or, Parser, rep, success, successThen } from './combinator';
+} from './evaluators/evaluate';
+import { cat, fail, list, map, or, Parser, rep, success, successThen } from './common/combinator';
 import { LexToken, SpChar, tokenize } from './lexer';
 import { err, ok, Result } from '@reismannnr2/async-result';
 
@@ -168,8 +168,8 @@ const lambdaDef: CalcParser<EvalNode> = (stream) => {
     ([, list]) => list,
   );
   const mapped = map(cat(identifiers, c('=>'), expr), ([identifiers, , child]) => {
-    const node: LambdaDefNode = {
-      type: 'lambda-def',
+    const node: LambdaNode = {
+      type: 'lambda',
       identifiers,
       children: [child],
     };

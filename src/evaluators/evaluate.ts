@@ -1,5 +1,5 @@
 import { err, ok, Result } from '@reismannnr2/async-result';
-import { RelativePath } from './state-reader';
+import { RelativePath } from '../state-reader';
 
 export type EvalResult = Result<EvalNode, Error>;
 export type VarRegistry = {
@@ -95,13 +95,8 @@ export type ObjectNode = {
   };
   pairs: Array<[EvalNode, EvalNode]>;
 };
-
-export type ReadStateNode = {
-  type: 'read-state';
-  as?: 'number' | 'string' | 'boolean';
-};
-export type LambdaDefNode = {
-  type: 'lambda-def';
+export type LambdaNode = {
+  type: 'lambda';
   identifiers: LambdaVarToken[];
   children: [EvalNode];
 };
@@ -118,7 +113,7 @@ export type EvalNode =
   | FunctionCallNode
   | CalculatedFunctionCallNode
   | LambdaCallNode
-  | LambdaDefNode
+  | LambdaNode
   | MemberAccessNode
   | ArrayNode
   | ObjectNode;
@@ -163,89 +158,3 @@ const isNumUnaryOp = (op: string): op is NumUnaryOp =>
   Boolean((numUnary as { [key in string]?: (x: number) => unknown })[op]);
 const isAnyUnaryOp = (op: string): op is AnyUnaryOp =>
   Boolean((anyUnary as { [key in string]?: (x: unknown) => unknown })[op]);
-
-const evalNode = (node: EvalNode, env: EvalEnv): EvalResult => {
-  return evalNodeWithLocal(node, env, { reg: {}, cache: {} });
-};
-export const evalNodeWithLocal = (node: EvalNode, env: EvalEnv, locals: VarStore): EvalResult => {
-  if (node.type === 'value') {
-    return ok(node);
-  }
-  if (node.type === 'var') {
-    return evalVar(node, env, locals);
-  }
-  if (node.type === 'infix') {
-    return evalInfix(node, env, locals);
-  }
-  if (node.type === 'unary') {
-    return evalUnary(node, env, locals);
-  }
-  if (node.type === 'expr') {
-    return err(new Error(''));
-  }
-  return err(new Error(''));
-};
-
-const intoNumber = (node: EvalNode): number => (node.type === 'value' ? Number(node.value) : NaN);
-const intoValue = (node: EvalNode): unknown => (node.type === 'value' ? node.value : node);
-
-const evalInfix = (node: InfixNode, env: EvalEnv, locals: VarStore): EvalResult => {
-  return Result.all(
-    node.children.map<() => EvalResult>((child) => () => evalNodeWithLocal(child, env, locals)),
-  ).andThen(([lhs, rhs]) => {
-    if (isNumInfixOp(node.op)) {
-      return ok({ type: 'value', value: numInfix[node.op](intoNumber(lhs), intoNumber(rhs)) });
-    }
-    if (isAnyInfixOp(node.op)) {
-      return ok({ type: 'value', value: anyInfix[node.op](intoValue(lhs), intoValue(rhs)) });
-    }
-    /* istanbul ignore next */
-    return err(new Error('Invalid Infix Operator'));
-  });
-};
-const evalUnary = (node: UnaryNode, env: EvalEnv, locals: VarStore): EvalResult => {
-  return evalNodeWithLocal(node, env, locals).andThen((child) => {
-    if (isNumUnaryOp(node.op)) {
-      return ok(successValue(numUnary[node.op](intoNumber(child))));
-    }
-    if (isAnyUnaryOp(node.op)) {
-      return ok({ type: 'value', value: anyUnary[node.op](intoValue(child)) });
-    }
-    /* istanbul ignore next */
-    return err(new Error(''));
-  });
-};
-const mergeLocals = (base: VarStore, child: VarRegistry | undefined): VarStore => {
-  if (child == undefined) {
-    return base;
-  }
-  const reg = { ...base.reg, ...child };
-  const cache = Object.entries(base.cache).reduce<VarCache>((cache, [key, v]) => {
-    if (key in child) {
-      return cache;
-    }
-    cache[key] = v;
-    return cache;
-  }, {});
-  return { reg, cache };
-};
-const evalVar = (node: VarToken, env: EvalEnv, locals: VarStore): EvalResult => {
-  const isGlobal = node.name.startsWith('$$');
-  const store = isGlobal ? env.globals : locals;
-  const name = node.name.substring(isGlobal ? 2 : 1);
-  if (store == undefined) {
-    return err(new Error(''));
-  }
-  const def = store.reg[name];
-  if (def == undefined) {
-    return err(new Error(''));
-  }
-  const cached = store.cache[name];
-  if (cached) {
-    return cached;
-  }
-  const calculated =
-    def.type === 'expr' ? evalNodeWithLocal(def, env, mergeLocals(locals, def.vars)) : evalNode(def, env);
-  store.cache[name] = calculated;
-  return calculated;
-};

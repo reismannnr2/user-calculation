@@ -1,4 +1,4 @@
-import { err, none, ok, Option, Result, some, Ok, None } from '@reismannnr2/async-result';
+import { err, none, ok, Option, Result, some, Ok, Err, None } from '@reismannnr2/async-result';
 
 type HasLength = { length: number };
 export type ParserResult<S extends HasLength, T> = Result<Option<[S, T]>, Error>;
@@ -10,13 +10,13 @@ export type ParserOutput<P> = P extends Parser<any, infer T> ? T : never;
 export const success = <S extends HasLength, T>(stream: S, value: T): ParserResult<S, T> => ok(some([stream, value]));
 export const fail = <S extends HasLength, T>(): ParserResult<S, T> => ok(none());
 
-export const successThen = <S extends HasLength, T, R, R2>(
+export const successThen = <S extends HasLength, T, R1, R2>(
   result: ParserResult<S, T>,
-  then: (args: [S, T]) => R,
+  then: (args: [S, T]) => R1,
   orDefault: (result: ParserResult<S, T>, op: Option<[S, T]>) => R2,
-): ParserResult<S, T> | R | R2 => {
+): Err<Error> | R1 | R2 => {
   if (result.isErr) {
-    return result;
+    return result.never();
   }
   const op = result.value;
   if (op.isNone) {
@@ -31,6 +31,15 @@ export const not =
     parser(stream).map((op) =>
       op.match<Option<[S, void]>>({ some: () => none(), none: () => some([stream, undefined]) }),
     );
+export const opt =
+  <S extends HasLength, T>(parser: Parser<S, T>): Parser<S, Option<T>> =>
+  (stream) => {
+    return successThen(
+      parser(stream),
+      ([rest, v]) => success(rest, some(v)),
+      () => success(stream, none()),
+    );
+  };
 export const or =
   <S extends HasLength, H, PS extends Parser<S, any>[]>( // eslint-disable-line @typescript-eslint/no-explicit-any
     head: Parser<S, H>,

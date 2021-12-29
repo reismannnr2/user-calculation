@@ -1,4 +1,4 @@
-import { Parser, success, fail, or } from './combinator';
+import { Parser, success, fail, or } from './common/combinator';
 import { err, ok, Result } from '@reismannnr2/async-result';
 
 export const specials = [

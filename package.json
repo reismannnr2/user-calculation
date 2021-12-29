@@ -16,7 +16,8 @@
   "dependencies": {
     "@reismannnr2/async-result": "^2.1.1",
     "fp-ts": "^2.11.5",
-    "io-ts": "^2.2.16"
+    "io-ts": "^2.2.16",
+    "io-ts-types": "^0.5.16"
   },
   "devDependencies": {
     "@types/jest": "^27.0.3",
