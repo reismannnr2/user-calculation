@@ -1,12 +1,13 @@
 import * as t from 'io-ts';
 import { keyObject } from '../common/util';
 
-export {
+import {
   valueNode as valueToken,
   varNode as varToken,
   fnNode as fnToken,
   lambdaVarNode as lambdaVarToken,
 } from './nodes';
+export { valueToken, varToken, fnToken, lambdaVarToken };
 export type {
   ValueNode as ValueToken,
   VarNode as VarToken,
@@ -21,10 +22,16 @@ export const spChars = [
   '!=',
   '>=',
   '<=',
+  '=>',
   '**',
   '&&',
   '||',
   '??',
+  '@|',
+  '@[',
+  '@{',
+  '@(',
+  '$(',
   '>',
   '<',
   '?',
@@ -44,6 +51,7 @@ export const spChars = [
   ']',
   '{',
   '}',
+  '|',
 ] as const;
 export type SpChar = typeof spChars[number];
 
@@ -53,8 +61,11 @@ export const spCharToken = t.type({
 });
 export type SpCharToken = t.TypeOf<typeof spCharToken>;
 
-export const identifierToken = t.type({
-  type: t.literal('identifier'),
-  value: t.string,
+export const propName = t.type({
+  type: t.literal('prop-name'),
+  name: t.string,
 });
-export type IdentifierToken = t.TypeOf<typeof identifierToken>;
+export type PropNameToken = t.TypeOf<typeof propName>;
+
+export const calcToken = t.union([spCharToken, propName, valueToken, varToken, fnToken, lambdaVarToken]);
+export type CalcToken = t.TypeOf<typeof calcToken>;
